@@ -7,17 +7,68 @@ on:
 
 jobs:
   build-apk:
-    name: Compiler l'APK Android
+    name: Compiler APK Android
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - name: Récupérer le code
+      - name: Recuperer le code
         uses: actions/checkout@v4
 
-      - name: Préparer le projet
+      - name: Preparer le projet
         run: |
           if [ ! -f package.json ]; then
-            z=$(ls -1 *.zip 2>/dev/null | sort -V | tail -n1)
-            if [ -n "$z" ]; then unzip -oq "$z" -d _projet; fi
-            p=$(find . -maxdepth 4 -name package.json -not -path '*/node_modules/*' | head -n1)
-            test -n "$p" || { echo "ERREUR
+            unzip -oq *.zip
+          fi
+          test -f www/index.html
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools platforms;android-35 build-tools;35.0.0
+
+      - name: Verifier la configuration
+        run: |
+          grep -q supabase.co www/index.html
+          test -f resources/android-icons/mipmap-xxxhdpi/ic_launcher.png
+
+      - name: Installer les dependances
+        run: npm install
+
+      - name: Copier supabase.js
+        run: |
+          npm run vendor
+          test -f www/js/vendor/supabase.js
+
+      - name: Creer le projet Android
+        run: npx cap add android
+
+      - name: Permissions camera micro et icone
+        run: node scripts/patch-android.js
+
+      - name: Synchroniser
+        run: npx cap sync android
+
+      - name: Compiler APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace
+
+      - name: Renommer APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk NetchatX.apk
+
+      - name: Publier APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: NetchatX-APK
+          path: NetchatX.apk
+          if-no-files-found: error
+          retention-days: 30
