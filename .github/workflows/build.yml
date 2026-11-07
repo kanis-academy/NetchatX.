@@ -1,0 +1,23 @@
+name: Build NetchatX APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-apk:
+    name: Compiler l'APK Android
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Préparer le projet
+        run: |
+          if [ ! -f package.json ]; then
+            z=$(ls -1 *.zip 2>/dev/null | sort -V | tail -n1)
+            if [ -n "$z" ]; then unzip -oq "$z" -d _projet; fi
+            p=$(find . -maxdepth 4 -name package.json -not -path '*/node_modules/*' | head -n1)
+            test -n "$p" || { echo "ERREUR
